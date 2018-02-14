@@ -8,6 +8,7 @@ find_package(websocketpp REQUIRED)
 find_package(Boost REQUIRED COMPONENTS
     system
 )
+find_package(Threads REQUIRED)
 
 enable_testing()
 
@@ -16,6 +17,7 @@ target_link_libraries(test_server
     websocketpp::websocketpp
     Boost::disable_autolinking
     Boost::system
+    Threads::Threads
 )
 set_target_properties(test_server
     PROPERTIES
