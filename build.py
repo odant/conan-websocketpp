@@ -32,6 +32,12 @@ def vs_add_toolset(builds):
                 result.append([settings, options, env_vars, build_requires, reference])
     return result
 
+def filter_libcxx(builds):
+    result = []
+    for settings, options, env_vars, build_requires, reference in builds:
+        if settings["compiler.libcxx"] == "libstdc++11":
+            result.append([settings, options, env_vars, build_requires, reference])
+    return result
     
 if __name__ == "__main__":
     builder = ConanMultiPackager(
@@ -40,11 +46,13 @@ if __name__ == "__main__":
         visual_runtimes=visual_runtimes,
         exclude_vcvars_precommand=True
     )
-    builder.add_common_builds(pure_c=True)
+    builder.add_common_builds(pure_c=False)
     # Adjusting build configurations
     builds = builder.items
     if platform.system() == "Windows":
         builds = vs_add_toolset(builds)
+    if platform.system() == "Linux":
+        builds = filter_libcxx(builds)
     # Replace build configurations
     builder.items = []
     for settings, options, env_vars, build_requires, _ in builds:
