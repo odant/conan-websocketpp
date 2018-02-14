@@ -11,7 +11,7 @@ class WebsocketppConan(ConanFile):
     no_copy_source = True
 
     def package(self):
-        self.copy("*.hpp", src="src/websocketpp", dst="include/webscoketpp")
+        self.copy("*.hpp", src="src/websocketpp", dst="include/websocketpp")
 
     def package_id(self):
         self.info.header_only()
