@@ -3,6 +3,6 @@
 #include <cstdlib>
 
 int main(int, char**) {
-    //websocketpp::server<websocketpp::config::asio> server;
+    websocketpp::server<websocketpp::config::asio> server;
     return EXIT_SUCCESS;
 }
