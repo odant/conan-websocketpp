@@ -1,0 +1,28 @@
+find_path(WEBSOCKETPP_INCLUDE_DIR
+    NAMES websocketpp/version.hpp
+    PATHS ${CONAN_INCLUDE_DIRS_WEBSOCKETPP}
+    NO_DEFAULT_PATH
+)
+
+set(WEBSOCKETPP_VERSION_MAJOR 0)
+set(WEBSOCKETPP_VERSION_MINOR 7)
+set(WEBSOCKETPP_VERSION_PATCH 0)
+set(WEBSOCKETPP_VERSION "${WEBSOCKETPP_VERSION_MAJOR}.${WEBSOCKETPP_VERSION_MINOR}.${WEBSOCKETPP_VERSION_PATCH}")
+
+include(FindPackageHandleStandardArgs)        
+find_package_handle_standard_args(websocketpp
+    REQUIRED_VARS WEBSOCKETPP_INCLUDE_DIR
+    VERSION_VAR WEBSOCKETPP_VERSION_STRING
+)
+
+if(WEBSOCKETPP_FOUND)
+    set(WEBSOCKETPP_INCLUDE_DIRS ${WEBSOCKETPP_INCLUDE_DIR})
+    mark_as_advanced(WEBSOCKETPP_INCLUDE_DIR WEBSOCKETPP_VERSION_STRING)
+
+    if(NOT TARGET websocketpp::websocketpp)
+      add_library(websocketpp::websocketpp INTERFACE IMPORTED)
+      set_target_properties(websocketpp::websocketpp PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES ${WEBSOCKETPP_INCLUDE_DIR}
+      )
+    endif()
+endif()
