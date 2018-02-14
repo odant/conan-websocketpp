@@ -10,6 +10,9 @@ class WebsocketppConan(ConanFile):
     exports_sources = "src/*"
     no_copy_source = True
 
+    def requirements(self):
+        self.requires("boost/[~=1.66.0]@%s/testing" % self.user)
+
     def package(self):
         self.copy("*.hpp", src="src/websocketpp", dst="include/websocketpp")
 
