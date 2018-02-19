@@ -1,0 +1,109 @@
+--- a/src/websocketpp/connection.hpp
++++ b/src/websocketpp/connection.hpp
+@@ -1357,7 +1357,7 @@
+         m_connection_hdl = hdl;
+         transport_con_type::set_handle(hdl);
+     }
+-protected:
++//protected:
+     void handle_transport_init(lib::error_code const & ec);
+ 
+     /// Set m_processor based on information in m_request. Set m_response
+@@ -1367,7 +1367,7 @@
+     /// Perform WebSocket handshake validation of m_request using m_processor.
+     /// set m_response and return an error code indicating status.
+     lib::error_code process_handshake_request();
+-private:
++//private:
+     
+ 
+     /// Completes m_response, serializes it, and sends it out on the wire.
+--- a/src/websocketpp/endpoint.hpp
++++ b/src/websocketpp/endpoint.hpp
+@@ -85,6 +85,8 @@
+     // TODO: organize these
+     typedef typename connection_type::termination_handler termination_handler;
+ 
++	typedef typename connection_type::socket_type socket_type;
++
+     // This would be ideal. Requires C++11 though
+     //friend connection;
+ 
+@@ -658,6 +660,9 @@
+         }
+         return con;
+     }
++
++	void adopt_socket(const std::string& request, socket_type && socket);
++
+ protected:
+     connection_ptr create_connection();
+ 
+--- a/src/websocketpp/impl/endpoint_impl.hpp
++++ b/src/websocketpp/impl/endpoint_impl.hpp
+@@ -33,6 +33,54 @@
+ namespace websocketpp {
+ 
+ template <typename connection, typename config>
++void endpoint<connection, config>::adopt_socket(const std::string& request, socket_type && socket) {
++	connection_ptr con = lib::make_shared<connection_type>(m_is_server,
++		m_user_agent, lib::ref(m_alog), lib::ref(m_elog), lib::ref(m_rng));
++
++	connection_weak_ptr w(con);
++
++	con->set_handle(w);
++
++	// Copy default handlers from the endpoint
++	con->set_open_handler(m_open_handler);
++	con->set_close_handler(m_close_handler);
++	con->set_fail_handler(m_fail_handler);
++	con->set_ping_handler(m_ping_handler);
++	con->set_pong_handler(m_pong_handler);
++	con->set_pong_timeout_handler(m_pong_timeout_handler);
++	con->set_interrupt_handler(m_interrupt_handler);
++	con->set_http_handler(m_http_handler);
++	con->set_validate_handler(m_validate_handler);
++	con->set_message_handler(m_message_handler);
++
++	if (m_open_handshake_timeout_dur != config::timeout_open_handshake) {
++		con->set_open_handshake_timeout(m_open_handshake_timeout_dur);
++	}
++	if (m_close_handshake_timeout_dur != config::timeout_close_handshake) {
++		con->set_close_handshake_timeout(m_close_handshake_timeout_dur);
++	}
++	if (m_pong_timeout_dur != config::timeout_pong) {
++		con->set_pong_timeout(m_pong_timeout_dur);
++	}
++	if (m_max_message_size != config::max_message_size) {
++		con->set_max_message_size(m_max_message_size);
++	}
++	con->set_max_http_body_size(m_max_http_body_size);
++
++	lib::error_code ec;
++
++	ec = con->init_asio(&socket.get_io_service());
++
++	con->get_socket() = std::move(socket);
++	con->m_state = websocketpp::session::state::connecting;
++	con->m_internal_state = websocketpp::istate::READ_HTTP_REQUEST;
++
++	strncpy(con->m_buf, request.c_str(), request.size());
++
++	con->handle_read_handshake(lib::error_code(), request.size());
++}
++
++template <typename connection, typename config>
+ typename endpoint<connection,config>::connection_ptr
+ endpoint<connection,config>::create_connection() {
+     m_alog.write(log::alevel::devel,"create_connection");
+--- a/src/websocketpp/transport/asio/connection.hpp
++++ b/src/websocketpp/transport/asio/connection.hpp
+@@ -406,7 +406,7 @@
+      * read or write the WebSocket handshakes. At this point the original
+      * callback function is called.
+      */
+-protected:
++//protected:
+     void init(init_handler callback) {
+         if (m_alog.static_test(log::alevel::devel)) {
+             m_alog.write(log::alevel::devel,"asio connection init");

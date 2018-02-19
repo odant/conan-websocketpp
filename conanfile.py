@@ -1,4 +1,4 @@
-from conans import ConanFile
+from conans import ConanFile, tools
 
 
 class WebsocketppConan(ConanFile):
@@ -7,15 +7,18 @@ class WebsocketppConan(ConanFile):
     license = "BSD - https://github.com/zaphoyd/websocketpp/blob/master/COPYING"
     description = "WebSocket++ is a header only C++ library that implements RFC6455 The WebSocket Protocol."
     url = "https://github.com/odant/conan-websocketpp"
-    exports_sources = "src/*", "Findwebsocketpp.cmake"
+    exports_sources = "src/*", "Findwebsocketpp.cmake", "odant.patch"
     no_copy_source = True
 
     def requirements(self):
         self.requires("boost/[~=1.66.0]@%s/testing" % self.user)
 
+    def source(self):
+        tools.patch(patch_file="odant.patch")
+
     def package(self):
         self.copy("Findwebsocketpp.cmake", src=".", dst=".")
-        self.copy("*.hpp", src="src/websocketpp", dst="include/websocketpp")
+        self.copy("*.hpp", src="src/websocketpp", dst="include/websocketpp", keep_path=True)
 
     def package_id(self):
         self.info.header_only()
