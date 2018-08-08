@@ -11,7 +11,7 @@ class WebsocketppConan(ConanFile):
     no_copy_source = True
 
     def requirements(self):
-        self.requires("boost/[>=1.54.0]@%s/testing" % self.user)
+        self.requires("boost/[>=1.54.0]@%s/stable" % self.user)
 
     def source(self):
         tools.patch(patch_file="odant.patch")
