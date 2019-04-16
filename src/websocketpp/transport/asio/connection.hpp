@@ -85,10 +85,10 @@ public:
     typedef typename config::response_type response_type;
     typedef typename response_type::ptr response_ptr;
 
-    /// Type of a pointer to the Asio io_service being used
-    typedef lib::asio::io_service * io_service_ptr;
-    /// Type of a pointer to the Asio io_service::strand being used
-    typedef lib::shared_ptr<lib::asio::io_service::strand> strand_ptr;
+    /// Type of a pointer to the Asio executor being used
+    typedef lib::asio::executor * executor_ptr;
+    /// Type of a pointer to the Asio strand<executor> being used
+    typedef lib::shared_ptr<lib::asio::strand<lib::asio::executor> > strand_ptr;
     /// Type of a pointer to the Asio timer class
     typedef lib::shared_ptr<lib::asio::steady_timer> timer_ptr;
 
@@ -312,7 +312,7 @@ public:
      */
     timer_ptr set_timer(long duration, timer_handler callback) {
         timer_ptr new_timer = lib::make_shared<lib::asio::steady_timer>(
-            lib::ref(*m_io_service),
+            lib::ref(*m_executor),
             lib::asio::milliseconds(duration)
         );
 
@@ -392,7 +392,7 @@ public:
     /// Initialize transport for reading
     /**
      * init_asio is called once immediately after construction to initialize
-     * Asio components to the io_service
+     * Asio components to the executor
      *
      * The transport initialization sequence consists of the following steps:
      * - Pre-init: the underlying socket is initialized to the point where
@@ -450,22 +450,22 @@ protected:
     /// Finish constructing the transport
     /**
      * init_asio is called once immediately after construction to initialize
-     * Asio components to the io_service.
+     * Asio components to the executor.
      *
-     * @param io_service A pointer to the io_service to register with this
+     * @param executor A pointer to the executor to register with this
      * connection
      *
      * @return Status code for the success or failure of the initialization
      */
-    lib::error_code init_asio (io_service_ptr io_service) {
-        m_io_service = io_service;
+    lib::error_code init_asio (executor_ptr executor) {
+        m_executor = executor;
 
         if (config::enable_multithreading) {
-            m_strand = lib::make_shared<lib::asio::io_service::strand>(
-                lib::ref(*io_service));
+            m_strand = lib::make_shared<lib::asio::strand<lib::asio::executor> >(
+                lib::ref(*executor));
         }
 
-        lib::error_code ec = socket_con_type::init_asio(io_service, m_strand,
+        lib::error_code ec = socket_con_type::init_asio(executor, m_strand,
             m_is_server);
 
         return ec;
@@ -1012,18 +1012,18 @@ protected:
      */
     lib::error_code interrupt(interrupt_handler handler) {
         if (config::enable_multithreading) {
-            m_io_service->post(m_strand->wrap(handler));
+            m_strand->post(handler);
         } else {
-            m_io_service->post(handler);
+            m_executor->post(handler);
         }
         return lib::error_code();
     }
 
     lib::error_code dispatch(dispatch_handler handler) {
         if (config::enable_multithreading) {
-            m_io_service->post(m_strand->wrap(handler));
+            m_strand->post(handler);
         } else {
-            m_io_service->post(handler);
+            m_executor->post(handler);
         }
         return lib::error_code();
     }
@@ -1172,9 +1172,9 @@ private:
     lib::shared_ptr<proxy_data> m_proxy_data;
 
     // transport resources
-    io_service_ptr  m_io_service;
-    strand_ptr      m_strand;
-    connection_hdl  m_connection_hdl;
+    executor_ptr   m_executor;
+    strand_ptr     m_strand;
+    connection_hdl m_connection_hdl;
 
     std::vector<lib::asio::const_buffer> m_bufs;
 

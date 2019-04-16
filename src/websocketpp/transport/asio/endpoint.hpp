@@ -77,24 +77,24 @@ public:
     /// associated with this endpoint transport component
     typedef typename transport_con_type::ptr transport_con_ptr;
 
-    /// Type of a pointer to the ASIO io_service being used
-    typedef lib::asio::io_service * io_service_ptr;
+    /// Type of a pointer to the ASIO executor being used
+    typedef lib::asio::executor * executor_ptr;
     /// Type of a shared pointer to the acceptor being used
     typedef lib::shared_ptr<lib::asio::ip::tcp::acceptor> acceptor_ptr;
     /// Type of a shared pointer to the resolver being used
     typedef lib::shared_ptr<lib::asio::ip::tcp::resolver> resolver_ptr;
     /// Type of timer handle
     typedef lib::shared_ptr<lib::asio::steady_timer> timer_ptr;
-    /// Type of a shared pointer to an io_service work object
-    typedef lib::shared_ptr<lib::asio::io_service::work> work_ptr;
+    /// Type of a shared pointer to an executor_work_guard object
+    typedef lib::shared_ptr<lib::asio::executor_work_guard<lib::asio::executor> > executor_work_guard_ptr;
 
     /// Type of socket pre-bind handler
     typedef lib::function<lib::error_code(acceptor_ptr)> tcp_pre_bind_handler;
 
     // generate and manage our own io_service
     explicit endpoint()
-      : m_io_service(NULL)
-      , m_external_io_service(false)
+      : m_executor(NULL)
+      , m_external_executor(false)
       , m_listen_backlog(lib::asio::socket_base::max_connections)
       , m_reuse_addr(false)
       , m_state(UNINITIALIZED)
@@ -103,14 +103,14 @@ public:
     }
 
     ~endpoint() {
-        // clean up our io_service if we were initialized with an internal one.
+        // clean up our executor if we were initialized with an internal one.
 
         // Explicitly destroy local objects
         m_acceptor.reset();
         m_resolver.reset();
-        m_work.reset();
-        if (m_state != UNINITIALIZED && !m_external_io_service) {
-            delete m_io_service;
+        m_executor_work_guard.reset();
+        if (m_state != UNINITIALIZED && !m_external_executor) {
+            delete m_executor;
         }
     }
 
@@ -132,8 +132,8 @@ public:
       : config::socket_type(std::move(src))
       , m_tcp_pre_init_handler(src.m_tcp_pre_init_handler)
       , m_tcp_post_init_handler(src.m_tcp_post_init_handler)
-      , m_io_service(src.m_io_service)
-      , m_external_io_service(src.m_external_io_service)
+      , m_executor(src.m_executor)
+      , m_external_executor(src.m_external_executor)
       , m_acceptor(src.m_acceptor)
       , m_listen_backlog(lib::asio::socket_base::max_connections)
       , m_reuse_addr(src.m_reuse_addr)
@@ -141,23 +141,23 @@ public:
       , m_alog(src.m_alog)
       , m_state(src.m_state)
     {
-        src.m_io_service = NULL;
-        src.m_external_io_service = false;
+        src.m_executor = NULL;
+        src.m_external_executor = false;
         src.m_acceptor = NULL;
         src.m_state = UNINITIALIZED;
     }
 
     /*endpoint & operator= (const endpoint && rhs) {
         if (this != &rhs) {
-            m_io_service = rhs.m_io_service;
-            m_external_io_service = rhs.m_external_io_service;
+            m_executor = rhs.m_executor;
+            m_external_executor = rhs.m_external_executor;
             m_acceptor = rhs.m_acceptor;
             m_listen_backlog = rhs.m_listen_backlog;
             m_reuse_addr = rhs.m_reuse_addr;
             m_state = rhs.m_state;
 
-            rhs.m_io_service = NULL;
-            rhs.m_external_io_service = false;
+            rhs.m_executor = NULL;
+            rhs.m_external_executor = false;
             rhs.m_acceptor = NULL;
             rhs.m_listen_backlog = lib::asio::socket_base::max_connections;
             rhs.m_state = UNINITIALIZED;
@@ -173,16 +173,16 @@ public:
         return socket_type::is_secure();
     }
 
-    /// initialize asio transport with external io_service (exception free)
+    /// initialize asio transport with external executor (exception free)
     /**
      * Initialize the ASIO transport policy for this endpoint using the provided
-     * io_service object. asio_init must be called exactly once on any endpoint
+     * executor object. asio_init must be called exactly once on any endpoint
      * that uses transport::asio before it can be used.
      *
-     * @param ptr A pointer to the io_service to use for asio events
+     * @param ptr A pointer to the executor to use for asio events
      * @param ec Set to indicate what error occurred, if any.
      */
-    void init_asio(io_service_ptr ptr, lib::error_code & ec) {
+    void init_asio(executor_ptr ptr, lib::error_code & ec) {
         if (m_state != UNINITIALIZED) {
             m_elog->write(log::elevel::library,
                 "asio::init_asio called from the wrong state");
@@ -193,35 +193,35 @@ public:
 
         m_alog->write(log::alevel::devel,"asio::init_asio");
 
-        m_io_service = ptr;
-        m_external_io_service = true;
+        m_executor = ptr;
+        m_external_executor = true;
         m_acceptor = lib::make_shared<lib::asio::ip::tcp::acceptor>(
-            lib::ref(*m_io_service));
+            lib::ref(*m_executor));
 
         m_state = READY;
         ec = lib::error_code();
     }
 
-    /// initialize asio transport with external io_service
+    /// initialize asio transport with external executor
     /**
      * Initialize the ASIO transport policy for this endpoint using the provided
-     * io_service object. asio_init must be called exactly once on any endpoint
+     * executor object. asio_init must be called exactly once on any endpoint
      * that uses transport::asio before it can be used.
      *
-     * @param ptr A pointer to the io_service to use for asio events
+     * @param ptr A pointer to the executor to use for asio events
      */
-    void init_asio(io_service_ptr ptr) {
+    void init_asio(executor_ptr ptr) {
         lib::error_code ec;
         init_asio(ptr,ec);
         if (ec) { throw exception(ec); }
     }
 
-    /// Initialize asio transport with internal io_service (exception free)
+    /// Initialize asio transport with internal executor (exception free)
     /**
      * This method of initialization will allocate and use an internally managed
-     * io_service.
+     * executor.
      *
-     * @see init_asio(io_service_ptr ptr)
+     * @see init_asio(executor_ptr ptr)
      *
      * @param ec Set to indicate what error occurred, if any.
      */
@@ -235,17 +235,19 @@ public:
 #else
         lib::auto_ptr<lib::asio::io_service> service(new lib::asio::io_service());
 #endif
-        init_asio(service.get(), ec);
-        if( !ec ) service.release(); // Call was successful, transfer ownership
-        m_external_io_service = false;
+        init_asio(&(service.get()->get_executor()), ec);
+        if( !ec ) {
+            m_service = std::move(service); // Call was successful, transfer ownership
+        }
+        m_external_executor = false;
     }
 
-    /// Initialize asio transport with internal io_service
+    /// Initialize asio transport with internal executor
     /**
      * This method of initialization will allocate and use an internally managed
-     * io_service.
+     * executor.
      *
-     * @see init_asio(io_service_ptr ptr)
+     * @see init_asio(executor_ptr ptr)
      */
     void init_asio() {
         // Use a smart pointer until the call is successful and ownership has 
@@ -259,8 +261,8 @@ public:
 #endif
         init_asio( service.get() );
         // If control got this far without an exception, then ownership has successfully been taken
-        service.release();
-        m_external_io_service = false;
+        m_service = std::move(service);
+        m_external_executor = false;
     }
 
     /// Sets the tcp pre bind handler
@@ -365,19 +367,19 @@ public:
         m_reuse_addr = value;
     }
 
-    /// Retrieve a reference to the endpoint's io_service
+    /// Retrieve a reference to the endpoint's executor
     /**
-     * The io_service may be an internal or external one. This may be used to
-     * call methods of the io_service that are not explicitly wrapped by the
+     * The executor may be an internal or external one. This may be used to
+     * call methods of the executor that are not explicitly wrapped by the
      * endpoint.
      *
      * This method is only valid after the endpoint has been initialized with
      * `init_asio`. No error will be returned if it isn't.
      *
-     * @return A reference to the endpoint's io_service
+     * @return A reference to the endpoint's executor
      */
-    lib::asio::io_service & get_io_service() {
-        return *m_io_service;
+    lib::asio::executor & get_executor() {
+        return *m_executor;
     }
     
     /// Get local TCP endpoint
@@ -558,7 +560,7 @@ public:
         lib::error_code & ec)
     {
         using lib::asio::ip::tcp;
-        tcp::resolver r(*m_io_service);
+        tcp::resolver r(*m_executor);
         tcp::resolver::query query(host, service);
         tcp::resolver::iterator endpoint_iterator = r.resolve(query);
         tcp::resolver::iterator end;
@@ -639,7 +641,7 @@ public:
 
     /// wraps the run method of the internal io_service object
     std::size_t run() {
-        return m_io_service->run();
+        return m_service->run();
     }
 
     /// wraps the run_one method of the internal io_service object
@@ -647,32 +649,32 @@ public:
      * @since 0.3.0-alpha4
      */
     std::size_t run_one() {
-        return m_io_service->run_one();
+        return m_service->run_one();
     }
 
     /// wraps the stop method of the internal io_service object
     void stop() {
-        m_io_service->stop();
+        m_service->stop();
     }
 
     /// wraps the poll method of the internal io_service object
     std::size_t poll() {
-        return m_io_service->poll();
+        return m_service->poll();
     }
 
     /// wraps the poll_one method of the internal io_service object
     std::size_t poll_one() {
-        return m_io_service->poll_one();
+        return m_service->poll_one();
     }
 
     /// wraps the reset method of the internal io_service object
     void reset() {
-        m_io_service->reset();
+        m_service->reset();
     }
 
     /// wraps the stopped method of the internal io_service object
     bool stopped() const {
-        return m_io_service->stopped();
+        return m_service->stopped();
     }
 
     /// Marks the endpoint as perpetual, stopping it from exiting when empty
@@ -688,8 +690,8 @@ public:
      * @since 0.3.0
      */
     void start_perpetual() {
-        m_work = lib::make_shared<lib::asio::io_service::work>(
-            lib::ref(*m_io_service)
+        m_executor_work_guard = lib::make_shared<lib::asio::executor_work_guard<ib::asio::executor> >(
+            lib::ref(*m_executor)
         );
     }
 
@@ -702,7 +704,7 @@ public:
      * @since 0.3.0
      */
     void stop_perpetual() {
-        m_work.reset();
+        m_executor_work_guard.reset();
     }
 
     /// Call back a function after a period of time.
@@ -719,7 +721,7 @@ public:
      */
     timer_ptr set_timer(long duration, timer_handler callback) {
         timer_ptr new_timer = lib::make_shared<lib::asio::steady_timer>(
-            *m_io_service,
+            *m_executor,
              lib::asio::milliseconds(duration)
         );
 
@@ -855,7 +857,7 @@ protected:
         // Create a resolver
         if (!m_resolver) {
             m_resolver = lib::make_shared<lib::asio::ip::tcp::resolver>(
-                lib::ref(*m_io_service));
+                lib::ref(*m_executor));
         }
 
         tcon->set_uri(u);
@@ -1123,7 +1125,7 @@ protected:
 
         lib::error_code ec;
 
-        ec = tcon->init_asio(m_io_service);
+        ec = tcon->init_asio(m_executor);
         if (ec) {return ec;}
 
         tcon->set_tcp_pre_init_handler(m_tcp_pre_init_handler);
@@ -1161,12 +1163,21 @@ private:
     tcp_init_handler    m_tcp_pre_init_handler;
     tcp_init_handler    m_tcp_post_init_handler;
 
+
+
     // Network Resources
-    io_service_ptr      m_io_service;
-    bool                m_external_io_service;
+
+#ifdef _WEBSOCKETPP_CPP11_MEMORY_
+    lib::unique_ptr<lib::asio::io_service> m_service;
+#else
+    lib::auto_ptr<lib::asio::io_service> m_service;
+#endif
+
+    executor_ptr        m_executor;
+    bool                m_external_executor;
     acceptor_ptr        m_acceptor;
     resolver_ptr        m_resolver;
-    work_ptr            m_work;
+    executor_work_guard_ptr m_executor_work_guard;
 
     // Network constants
     int                 m_listen_backlog;
