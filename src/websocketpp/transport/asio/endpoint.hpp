@@ -690,7 +690,7 @@ public:
      * @since 0.3.0
      */
     void start_perpetual() {
-        m_executor_work_guard = lib::make_shared<lib::asio::executor_work_guard<ib::asio::executor> >(
+        m_executor_work_guard = lib::make_shared<lib::asio::executor_work_guard<lib::asio::executor> >(
             lib::ref(*m_executor)
         );
     }
@@ -784,7 +784,7 @@ public:
         if (config::enable_multithreading) {
             m_acceptor->async_accept(
                 tcon->get_raw_socket(),
-                tcon->get_strand()->wrap(lib::bind(
+                lib::asio::bind_executor(*tcon->get_strand(), lib::bind(
                     &type::handle_accept,
                     this,
                     callback,
@@ -912,7 +912,7 @@ protected:
         if (config::enable_multithreading) {
             m_resolver->async_resolve(
                 query,
-                tcon->get_strand()->wrap(lib::bind(
+                lib::asio::bind_executor(*tcon->get_strand(), lib::bind(
                     &type::handle_resolve,
                     this,
                     tcon,
@@ -1021,7 +1021,7 @@ protected:
             lib::asio::async_connect(
                 tcon->get_raw_socket(),
                 iterator,
-                tcon->get_strand()->wrap(lib::bind(
+                lib::asio::bind_executor(*tcon->get_strand(), lib::bind(
                     &type::handle_connect,
                     this,
                     tcon,

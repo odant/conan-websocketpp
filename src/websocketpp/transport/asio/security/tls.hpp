@@ -267,7 +267,7 @@ protected:
         if (m_strand) {
             m_socket->async_handshake(
                 get_handshake_type(),
-                m_strand->wrap(lib::bind(
+                lib::asio::bind_executor(*m_strand, lib::bind(
                     &type::handle_init, get_shared(),
                     callback,
                     lib::placeholders::_1
@@ -327,7 +327,7 @@ protected:
 
     void async_shutdown(socket::shutdown_handler callback) {
         if (m_strand) {
-            m_socket->async_shutdown(m_strand->wrap(callback));
+            m_socket->async_shutdown(lib::asio::bind_executor(*m_strand, callback));
         } else {
             m_socket->async_shutdown(callback);
         }
