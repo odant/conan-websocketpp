@@ -3,7 +3,7 @@ from conans import ConanFile, tools
 
 class WebsocketppConan(ConanFile):
     name = "websocketpp"
-    version = "0.7.0"
+    version = "0.8.1+0"
     license = "BSD - https://github.com/zaphoyd/websocketpp/blob/master/COPYING"
     description = "WebSocket++ is a header only C++ library that implements RFC6455 The WebSocket Protocol."
     url = "https://github.com/odant/conan-websocketpp"
@@ -11,7 +11,7 @@ class WebsocketppConan(ConanFile):
     no_copy_source = True
 
     def requirements(self):
-        self.requires("boost/[>=1.54.0]@%s/stable" % self.user)
+        self.requires("boost/[>=1.70.0]@%s/stable" % self.user)
 
     def source(self):
         tools.patch(patch_file="odant.patch")
