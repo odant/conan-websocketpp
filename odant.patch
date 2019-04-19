@@ -82,7 +82,7 @@
 +
 +    lib::error_code ec;
 +
-+    ec = con->init_asio(&socket.get_executor());
++    ec = con->init_asio(socket.get_executor());
 +
 +    con->get_socket() = std::move(socket);
 +    con->m_state = websocketpp::session::state::connecting;
