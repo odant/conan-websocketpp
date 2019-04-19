@@ -86,7 +86,7 @@ public:
     typedef typename response_type::ptr response_ptr;
 
     /// Type of a pointer to the Asio executor being used
-    typedef lib::asio::executor * executor_ptr;
+    typedef lib::asio::executor executor_type;
     /// Type of a pointer to the Asio strand<executor> being used
     typedef lib::shared_ptr<lib::asio::strand<lib::asio::executor> > strand_ptr;
     /// Type of a pointer to the Asio timer class
@@ -312,7 +312,7 @@ public:
      */
     timer_ptr set_timer(long duration, timer_handler callback) {
         timer_ptr new_timer = lib::make_shared<lib::asio::steady_timer>(
-            lib::ref(*m_executor),
+            m_executor,
             lib::asio::milliseconds(duration)
         );
 
@@ -457,12 +457,12 @@ protected:
      *
      * @return Status code for the success or failure of the initialization
      */
-    lib::error_code init_asio (executor_ptr executor) {
+    lib::error_code init_asio (executor_type executor) {
         m_executor = executor;
 
         if (config::enable_multithreading) {
             m_strand = lib::make_shared<lib::asio::strand<lib::asio::executor> >(
-                lib::ref(*executor));
+                executor);
         }
 
         lib::error_code ec = socket_con_type::init_asio(executor, m_strand,
@@ -1014,7 +1014,7 @@ protected:
         if (config::enable_multithreading) {
             lib::asio::post(*m_strand, handler);
         } else {
-            lib::asio::post(*m_executor, handler);
+            lib::asio::post(m_executor, handler);
         }
         return lib::error_code();
     }
@@ -1023,7 +1023,7 @@ protected:
         if (config::enable_multithreading) {
             lib::asio::post(*m_strand, handler);
         } else {
-            lib::asio::post(*m_executor, handler);
+            lib::asio::post(m_executor, handler);
         }
         return lib::error_code();
     }
@@ -1172,7 +1172,7 @@ private:
     lib::shared_ptr<proxy_data> m_proxy_data;
 
     // transport resources
-    executor_ptr   m_executor;
+    executor_type  m_executor;
     strand_ptr     m_strand;
     connection_hdl m_connection_hdl;
 

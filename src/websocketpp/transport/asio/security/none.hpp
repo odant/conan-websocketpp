@@ -63,7 +63,7 @@ public:
     typedef lib::shared_ptr<type> ptr;
 
     /// Type of a pointer to the Asio executor being used
-    typedef lib::asio::executor* executor_ptr;
+    typedef lib::asio::executor executor_type;
     /// Type of a pointer to the Asio executor strand being used
     typedef lib::shared_ptr<lib::asio::strand<lib::asio::executor> > strand_ptr;
     /// Type of the ASIO socket being used
@@ -162,14 +162,13 @@ protected:
      * @param strand A shared pointer to the connection's asio strand
      * @param is_server Whether or not the endpoint is a server or not.
      */
-    lib::error_code init_asio (executor_ptr service, strand_ptr, bool)
+    lib::error_code init_asio (executor_type service, strand_ptr, bool)
     {
         if (m_state != UNINITIALIZED) {
             return socket::make_error_code(socket::error::invalid_state);
         }
 
-        m_socket = lib::make_shared<lib::asio::ip::tcp::socket>(
-            lib::ref(*service));
+        m_socket = lib::make_shared<lib::asio::ip::tcp::socket>(service);
 
         if (m_socket_init_handler) {
             m_socket_init_handler(m_hdl, *m_socket);

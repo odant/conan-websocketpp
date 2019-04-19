@@ -78,7 +78,7 @@ public:
     typedef typename transport_con_type::ptr transport_con_ptr;
 
     /// Type of a pointer to the ASIO executor being used
-    typedef lib::asio::executor * executor_ptr;
+    typedef lib::asio::executor executor_type;
     /// Type of a shared pointer to the acceptor being used
     typedef lib::shared_ptr<lib::asio::ip::tcp::acceptor> acceptor_ptr;
     /// Type of a shared pointer to the resolver being used
@@ -93,9 +93,7 @@ public:
 
     // generate and manage our own io_service
     explicit endpoint()
-      : m_executor(NULL)
-      , m_external_executor(false)
-      , m_listen_backlog(lib::asio::socket_base::max_connections)
+      : m_listen_backlog(lib::asio::socket_base::max_connections)
       , m_reuse_addr(false)
       , m_state(UNINITIALIZED)
     {
@@ -109,9 +107,6 @@ public:
         m_acceptor.reset();
         m_resolver.reset();
         m_executor_work_guard.reset();
-        if (m_state != UNINITIALIZED && !m_external_executor) {
-            delete m_executor;
-        }
     }
 
     /// transport::asio objects are moveable but not copyable or assignable.
@@ -132,8 +127,7 @@ public:
       : config::socket_type(std::move(src))
       , m_tcp_pre_init_handler(src.m_tcp_pre_init_handler)
       , m_tcp_post_init_handler(src.m_tcp_post_init_handler)
-      , m_executor(src.m_executor)
-      , m_external_executor(src.m_external_executor)
+      , m_executor(std::move(src.m_executor))
       , m_acceptor(src.m_acceptor)
       , m_listen_backlog(lib::asio::socket_base::max_connections)
       , m_reuse_addr(src.m_reuse_addr)
@@ -141,8 +135,6 @@ public:
       , m_alog(src.m_alog)
       , m_state(src.m_state)
     {
-        src.m_executor = NULL;
-        src.m_external_executor = false;
         src.m_acceptor = NULL;
         src.m_state = UNINITIALIZED;
     }
@@ -150,14 +142,12 @@ public:
     /*endpoint & operator= (const endpoint && rhs) {
         if (this != &rhs) {
             m_executor = rhs.m_executor;
-            m_external_executor = rhs.m_external_executor;
             m_acceptor = rhs.m_acceptor;
             m_listen_backlog = rhs.m_listen_backlog;
             m_reuse_addr = rhs.m_reuse_addr;
             m_state = rhs.m_state;
 
             rhs.m_executor = NULL;
-            rhs.m_external_executor = false;
             rhs.m_acceptor = NULL;
             rhs.m_listen_backlog = lib::asio::socket_base::max_connections;
             rhs.m_state = UNINITIALIZED;
@@ -182,7 +172,7 @@ public:
      * @param ptr A pointer to the executor to use for asio events
      * @param ec Set to indicate what error occurred, if any.
      */
-    void init_asio(executor_ptr ptr, lib::error_code & ec) {
+    void init_asio(executor_type executor, lib::error_code & ec) {
         if (m_state != UNINITIALIZED) {
             m_elog->write(log::elevel::library,
                 "asio::init_asio called from the wrong state");
@@ -193,10 +183,9 @@ public:
 
         m_alog->write(log::alevel::devel,"asio::init_asio");
 
-        m_executor = ptr;
-        m_external_executor = true;
+        m_executor = executor;
         m_acceptor = lib::make_shared<lib::asio::ip::tcp::acceptor>(
-            lib::ref(*m_executor));
+            m_executor);
 
         m_state = READY;
         ec = lib::error_code();
@@ -210,9 +199,9 @@ public:
      *
      * @param ptr A pointer to the executor to use for asio events
      */
-    void init_asio(executor_ptr ptr) {
+    void init_asio(executor_type executor) {
         lib::error_code ec;
-        init_asio(ptr,ec);
+        init_asio(executor,ec);
         if (ec) { throw exception(ec); }
     }
 
@@ -235,11 +224,10 @@ public:
 #else
         lib::auto_ptr<lib::asio::io_service> service(new lib::asio::io_service());
 #endif
-        init_asio(&(service.get()->get_executor()), ec);
+        init_asio(service.get()->get_executor(), ec);
         if( !ec ) {
             m_service = std::move(service); // Call was successful, transfer ownership
         }
-        m_external_executor = false;
     }
 
     /// Initialize asio transport with internal executor
@@ -262,7 +250,6 @@ public:
         init_asio( service.get() );
         // If control got this far without an exception, then ownership has successfully been taken
         m_service = std::move(service);
-        m_external_executor = false;
     }
 
     /// Sets the tcp pre bind handler
@@ -378,8 +365,8 @@ public:
      *
      * @return A reference to the endpoint's executor
      */
-    lib::asio::executor & get_executor() {
-        return *m_executor;
+    lib::asio::executor get_executor() {
+        return m_executor;
     }
     
     /// Get local TCP endpoint
@@ -560,7 +547,7 @@ public:
         lib::error_code & ec)
     {
         using lib::asio::ip::tcp;
-        tcp::resolver r(*m_executor);
+        tcp::resolver r(m_executor);
         tcp::resolver::query query(host, service);
         tcp::resolver::iterator endpoint_iterator = r.resolve(query);
         tcp::resolver::iterator end;
@@ -691,7 +678,7 @@ public:
      */
     void start_perpetual() {
         m_executor_work_guard = lib::make_shared<lib::asio::executor_work_guard<lib::asio::executor> >(
-            lib::ref(*m_executor)
+            m_executor
         );
     }
 
@@ -721,7 +708,7 @@ public:
      */
     timer_ptr set_timer(long duration, timer_handler callback) {
         timer_ptr new_timer = lib::make_shared<lib::asio::steady_timer>(
-            *m_executor,
+            m_executor,
              lib::asio::milliseconds(duration)
         );
 
@@ -857,7 +844,7 @@ protected:
         // Create a resolver
         if (!m_resolver) {
             m_resolver = lib::make_shared<lib::asio::ip::tcp::resolver>(
-                lib::ref(*m_executor));
+                m_executor);
         }
 
         tcon->set_uri(u);
@@ -1173,8 +1160,7 @@ private:
     lib::auto_ptr<lib::asio::io_service> m_service;
 #endif
 
-    executor_ptr        m_executor;
-    bool                m_external_executor;
+    executor_type       m_executor;
     acceptor_ptr        m_acceptor;
     resolver_ptr        m_resolver;
     executor_work_guard_ptr m_executor_work_guard;

@@ -72,7 +72,7 @@ public:
     /// Type of a shared pointer to the ASIO socket being used
     typedef lib::shared_ptr<socket_type> socket_ptr;
     /// Type of a pointer to the ASIO executor being used
-    typedef lib::asio::executor * executor_ptr;
+    typedef lib::asio::executor executor_type;
     /// Type of a pointer to the ASIO executor strand being used
     typedef lib::shared_ptr<lib::asio::strand<lib::asio::executor> > strand_ptr;
     /// Type of a shared pointer to the ASIO TLS context being used
@@ -182,7 +182,7 @@ protected:
      * @param strand A pointer to the connection's strand
      * @param is_server Whether or not the endpoint is a server or not.
      */
-    lib::error_code init_asio (executor_ptr service, strand_ptr strand,
+    lib::error_code init_asio (executor_type service, strand_ptr strand,
         bool is_server)
     {
         if (!m_tls_init_handler) {
@@ -194,7 +194,7 @@ protected:
             return socket::make_error_code(socket::error::invalid_tls_context);
         }
         m_socket = lib::make_shared<socket_type>(
-            _WEBSOCKETPP_REF(*service),lib::ref(*m_context));
+            service,*m_context);
 
         if (m_socket_init_handler) {
             m_socket_init_handler(m_hdl, get_socket());
