@@ -98,7 +98,24 @@
  endpoint<connection,config>::create_connection() {
 --- a/src/websocketpp/transport/asio/connection.hpp
 +++ b/src/websocketpp/transport/asio/connection.hpp
-@@ -406,7 +406,7 @@ public:
+@@ -85,10 +85,14 @@ public:
+     typedef typename config::response_type response_type;
+     typedef typename response_type::ptr response_ptr;
+ 
+-    /// Type of a pointer to the Asio executor being used
++    /// Type of Asio executor being used
++#if BOOST_VERSION < 107400    
+     typedef lib::asio::executor executor_type;
++#else
++    typedef lib::asio::any_io_executor executor_type;
++#endif    
+     /// Type of a pointer to the Asio strand<executor> being used
+-    typedef lib::shared_ptr<lib::asio::strand<lib::asio::executor> > strand_ptr;
++    typedef lib::shared_ptr<lib::asio::strand<executor_type> > strand_ptr;
+     /// Type of a pointer to the Asio timer class
+     typedef lib::shared_ptr<lib::asio::steady_timer> timer_ptr;
+ 
+@@ -406,7 +410,7 @@ public:
       * read or write the WebSocket handshakes. At this point the original
       * callback function is called.
       */
@@ -107,3 +124,93 @@
      void init(init_handler callback) {
          if (m_alog->static_test(log::alevel::devel)) {
              m_alog->write(log::alevel::devel,"asio connection init");
+@@ -461,7 +465,7 @@ protected:
+         m_executor = executor;
+ 
+         if (config::enable_multithreading) {
+-            m_strand = lib::make_shared<lib::asio::strand<lib::asio::executor> >(
++            m_strand = lib::make_shared<lib::asio::strand<executor_type> >(
+                 executor);
+         }
+ 
+--- a/src/websocketpp/transport/asio/endpoint.hpp
++++ b/src/websocketpp/transport/asio/endpoint.hpp
+@@ -77,8 +77,12 @@ public:
+     /// associated with this endpoint transport component
+     typedef typename transport_con_type::ptr transport_con_ptr;
+ 
+-    /// Type of a pointer to the ASIO executor being used
++    /// Type of Asio executor being used
++#if BOOST_VERSION < 107400    
+     typedef lib::asio::executor executor_type;
++#else
++    typedef lib::asio::any_io_executor executor_type;
++#endif    
+     /// Type of a shared pointer to the acceptor being used
+     typedef lib::shared_ptr<lib::asio::ip::tcp::acceptor> acceptor_ptr;
+     /// Type of a shared pointer to the resolver being used
+@@ -86,7 +90,7 @@ public:
+     /// Type of timer handle
+     typedef lib::shared_ptr<lib::asio::steady_timer> timer_ptr;
+     /// Type of a shared pointer to an executor_work_guard object
+-    typedef lib::shared_ptr<lib::asio::executor_work_guard<lib::asio::executor> > executor_work_guard_ptr;
++    typedef lib::shared_ptr<lib::asio::executor_work_guard<executor_type> > executor_work_guard_ptr;
+ 
+     /// Type of socket pre-bind handler
+     typedef lib::function<lib::error_code(acceptor_ptr)> tcp_pre_bind_handler;
+@@ -365,7 +369,7 @@ public:
+      *
+      * @return A reference to the endpoint's executor
+      */
+-    lib::asio::executor get_executor() {
++    executor_type get_executor() {
+         return m_executor;
+     }
+     
+@@ -677,7 +681,7 @@ public:
+      * @since 0.3.0
+      */
+     void start_perpetual() {
+-        m_executor_work_guard = lib::make_shared<lib::asio::executor_work_guard<lib::asio::executor> >(
++        m_executor_work_guard = lib::make_shared<lib::asio::executor_work_guard<executor_type> >(
+             m_executor
+         );
+     }
+--- a/src/websocketpp/transport/asio/security/none.hpp
++++ b/src/websocketpp/transport/asio/security/none.hpp
+@@ -62,10 +62,14 @@ public:
+     /// Type of a shared pointer to this connection socket component
+     typedef lib::shared_ptr<type> ptr;
+ 
+-    /// Type of a pointer to the Asio executor being used
++    /// Type of Asio executor being used
++#if BOOST_VERSION < 107400    
+     typedef lib::asio::executor executor_type;
++#else
++    typedef lib::asio::any_io_executor executor_type;
++#endif    
+     /// Type of a pointer to the Asio executor strand being used
+-    typedef lib::shared_ptr<lib::asio::strand<lib::asio::executor> > strand_ptr;
++    typedef lib::shared_ptr<lib::asio::strand<executor_type> > strand_ptr;
+     /// Type of the ASIO socket being used
+     typedef lib::asio::ip::tcp::socket socket_type;
+     /// Type of a shared pointer to the socket being used.
+--- a/src/websocketpp/transport/asio/security/tls.hpp
++++ b/src/websocketpp/transport/asio/security/tls.hpp
+@@ -71,10 +71,14 @@ public:
+     typedef lib::asio::ssl::stream<lib::asio::ip::tcp::socket> socket_type;
+     /// Type of a shared pointer to the ASIO socket being used
+     typedef lib::shared_ptr<socket_type> socket_ptr;
+-    /// Type of a pointer to the ASIO executor being used
++    /// Type of Asio executor being used
++#if BOOST_VERSION < 107400    
+     typedef lib::asio::executor executor_type;
++#else
++    typedef lib::asio::any_io_executor executor_type;
++#endif    
+     /// Type of a pointer to the ASIO executor strand being used
+-    typedef lib::shared_ptr<lib::asio::strand<lib::asio::executor> > strand_ptr;
++    typedef lib::shared_ptr<lib::asio::strand<executor_type> > strand_ptr;
+     /// Type of a shared pointer to the ASIO TLS context being used
+     typedef lib::shared_ptr<lib::asio::ssl::context> context_ptr;
+ 
