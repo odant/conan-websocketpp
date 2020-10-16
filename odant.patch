@@ -1,3 +1,16 @@
+diff --git a/src/websocketpp/impl/connection_impl.hpp b/src/websocketpp/impl/connection_impl.hpp
+index bf88c95..d2beef7 100644
+--- a/src/websocketpp/impl/connection_impl.hpp
++++ b/src/websocketpp/impl/connection_impl.hpp
+@@ -982,7 +982,7 @@ void connection<config>::handle_read_frame(lib::error_code const & ec,
+                 // just ignore it
+                 m_alog->write(log::alevel::devel,"got eof from closed con");
+                 return;
+-            } else if (m_state == session::state::closing && !m_is_server) {
++            } else if (m_state == session::state::closing) {
+                 // If we are a client we expect to get eof in the closing state,
+                 // this is a signal to terminate our end of the connection after
+                 // the closing handshake
 diff --git a/src/websocketpp/common/functional.hpp b/src/websocketpp/common/functional.hpp
 index d332dd1..a35a47d 100644
 --- a/src/websocketpp/common/functional.hpp
