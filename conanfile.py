@@ -3,7 +3,7 @@ from conans import ConanFile, tools
 
 class WebsocketppConan(ConanFile):
     name = "websocketpp"
-    version = "0.8.1+2"
+    version = "0.8.1+3"
     license = "BSD - https://github.com/zaphoyd/websocketpp/blob/master/COPYING"
     description = "WebSocket++ is a header only C++ library that implements RFC6455 The WebSocket Protocol."
     url = "https://github.com/odant/conan-websocketpp"
