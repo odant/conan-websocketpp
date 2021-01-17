@@ -1,21 +1,8 @@
-diff --git a/src/websocketpp/impl/connection_impl.hpp b/src/websocketpp/impl/connection_impl.hpp
-index bf88c95..d2beef7 100644
---- a/src/websocketpp/impl/connection_impl.hpp
-+++ b/src/websocketpp/impl/connection_impl.hpp
-@@ -982,7 +982,7 @@ void connection<config>::handle_read_frame(lib::error_code const & ec,
-                 // just ignore it
-                 m_alog->write(log::alevel::devel,"got eof from closed con");
-                 return;
--            } else if (m_state == session::state::closing && !m_is_server) {
-+            } else if (m_state == session::state::closing) {
-                 // If we are a client we expect to get eof in the closing state,
-                 // this is a signal to terminate our end of the connection after
-                 // the closing handshake
 diff --git a/src/websocketpp/common/functional.hpp b/src/websocketpp/common/functional.hpp
-index d332dd1..a35a47d 100644
+index d332dd1..6e39ec3 100644
 --- a/src/websocketpp/common/functional.hpp
 +++ b/src/websocketpp/common/functional.hpp
-@@ -49,7 +49,7 @@
+@@ -49,10 +49,10 @@
  
  
  
@@ -23,7 +10,11 @@ index d332dd1..a35a47d 100644
 +#if defined _WEBSOCKETPP_CPP11_FUNCTIONAL_ && !defined WEBSOCKETPP_USE_BOOST_FUNCTIONAL
      #include <functional>
  #else
-     #include <boost/bind.hpp>
+-    #include <boost/bind.hpp>
++    #include <boost/bind/bind.hpp>
+     #include <boost/function.hpp>
+     #include <boost/ref.hpp>
+ #endif
 @@ -62,7 +62,7 @@
  namespace websocketpp {
  namespace lib {
@@ -33,6 +24,20 @@ index d332dd1..a35a47d 100644
      using std::function;
      using std::bind;
      using std::ref;
+@@ -83,12 +83,7 @@ namespace lib {
+     using boost::function;
+     using boost::bind;
+     using boost::ref;
+-    namespace placeholders {
+-        /// \todo this feels hacky, is there a better way?
+-        using ::_1;
+-        using ::_2;
+-        using ::_3;
+-    }
++    namespace placeholders = boost::placeholders;
+ 
+     // See above definition for more details on what this is and why it exists
+     #define _WEBSOCKETPP_REF(x) boost::ref(x)
 diff --git a/src/websocketpp/common/memory.hpp b/src/websocketpp/common/memory.hpp
 index 42048e3..ec36a95 100644
 --- a/src/websocketpp/common/memory.hpp
@@ -128,6 +133,19 @@ index c124b1d..7203216 100644
  protected:
      connection_ptr create_connection();
  
+diff --git a/src/websocketpp/impl/connection_impl.hpp b/src/websocketpp/impl/connection_impl.hpp
+index bf88c95..d2beef7 100644
+--- a/src/websocketpp/impl/connection_impl.hpp
++++ b/src/websocketpp/impl/connection_impl.hpp
+@@ -982,7 +982,7 @@ void connection<config>::handle_read_frame(lib::error_code const & ec,
+                 // just ignore it
+                 m_alog->write(log::alevel::devel,"got eof from closed con");
+                 return;
+-            } else if (m_state == session::state::closing && !m_is_server) {
++            } else if (m_state == session::state::closing) {
+                 // If we are a client we expect to get eof in the closing state,
+                 // this is a signal to terminate our end of the connection after
+                 // the closing handshake
 diff --git a/src/websocketpp/impl/endpoint_impl.hpp b/src/websocketpp/impl/endpoint_impl.hpp
 index 2aac1d9..c1b726c 100644
 --- a/src/websocketpp/impl/endpoint_impl.hpp
