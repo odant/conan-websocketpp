@@ -38,6 +38,19 @@ index d332dd1..6e39ec3 100644
  
      // See above definition for more details on what this is and why it exists
      #define _WEBSOCKETPP_REF(x) boost::ref(x)
+diff --git a/src/websocketpp/common/md5.hpp b/src/websocketpp/common/md5.hpp
+index 279725f..81a6768 100644
+--- a/src/websocketpp/common/md5.hpp
++++ b/src/websocketpp/common/md5.hpp
+@@ -364,7 +364,7 @@ void md5_append(md5_state_t *pms, md5_byte_t const * data, size_t nbytes) {
+     return;
+ 
+     /* Update the message length. */
+-    pms->count[1] += nbytes >> 29;
++    pms->count[1] += static_cast<md5_word_t>(nbytes >> 29);
+     pms->count[0] += nbits;
+     if (pms->count[0] < nbits)
+     pms->count[1]++;
 diff --git a/src/websocketpp/common/memory.hpp b/src/websocketpp/common/memory.hpp
 index 42048e3..ec36a95 100644
 --- a/src/websocketpp/common/memory.hpp
@@ -133,6 +146,19 @@ index c124b1d..7203216 100644
  protected:
      connection_ptr create_connection();
  
+diff --git a/src/websocketpp/frame.hpp b/src/websocketpp/frame.hpp
+index 18a990b..f883a66 100644
+--- a/src/websocketpp/frame.hpp
++++ b/src/websocketpp/frame.hpp
+@@ -831,7 +831,7 @@ inline size_t byte_mask_circ(uint8_t * input, uint8_t * output, size_t length,
+     size_t prepared_key)
+ {
+     uint32_converter key;
+-    key.i = prepared_key;
++    key.i = static_cast<uint32_t>(prepared_key);
+ 
+     for (size_t i = 0; i < length; ++i) {
+         output[i] = input[i] ^ key.c[i % 4];
 diff --git a/src/websocketpp/impl/connection_impl.hpp b/src/websocketpp/impl/connection_impl.hpp
 index bf88c95..d2beef7 100644
 --- a/src/websocketpp/impl/connection_impl.hpp
@@ -205,6 +231,19 @@ index 2aac1d9..c1b726c 100644
  template <typename connection, typename config>
  typename endpoint<connection,config>::connection_ptr
  endpoint<connection,config>::create_connection() {
+diff --git a/src/websocketpp/sha1/sha1.hpp b/src/websocketpp/sha1/sha1.hpp
+index 6b48d95..6fd3fa2 100644
+--- a/src/websocketpp/sha1/sha1.hpp
++++ b/src/websocketpp/sha1/sha1.hpp
+@@ -173,7 +173,7 @@ inline void calc(void const * src, size_t bytelength, unsigned char * hash) {
+         innerHash(result, w);
+         clearWBuffert(w);
+     }
+-    w[15] = bytelength << 3;
++    w[15] = static_cast<unsigned int>(bytelength << 3);
+     innerHash(result, w);
+ 
+     // Store hash in result pointer, and make sure we get in in the correct
 diff --git a/src/websocketpp/transport/asio/connection.hpp b/src/websocketpp/transport/asio/connection.hpp
 index 0056d07..97a47e9 100644
 --- a/src/websocketpp/transport/asio/connection.hpp
