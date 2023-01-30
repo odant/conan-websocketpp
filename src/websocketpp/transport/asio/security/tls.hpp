@@ -382,7 +382,7 @@ private:
         }
     }
 
-    executor_ptr        m_executor;
+    executor_type       m_executor;
     strand_ptr          m_strand;
     context_ptr         m_context;
     socket_ptr          m_socket;
