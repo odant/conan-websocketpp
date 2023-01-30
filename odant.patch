@@ -176,7 +176,7 @@ diff --git a/src/websocketpp/impl/endpoint_impl.hpp b/src/websocketpp/impl/endpo
 index 2aac1d9..c1b726c 100644
 --- a/src/websocketpp/impl/endpoint_impl.hpp
 +++ b/src/websocketpp/impl/endpoint_impl.hpp
-@@ -32,6 +32,54 @@
+@@ -32,6 +32,55 @@
  
  namespace websocketpp {
  
@@ -217,6 +217,7 @@ index 2aac1d9..c1b726c 100644
 +
 +    lib::error_code ec;
 +
++    ec = transport_type::init(con);
 +    ec = con->init_asio(socket.get_executor());
 +
 +    con->get_socket() = std::move(socket);
