@@ -351,10 +351,28 @@ index ce55db6..266567e 100644
      typedef lib::asio::ip::tcp::socket socket_type;
      /// Type of a shared pointer to the socket being used.
 diff --git a/src/websocketpp/transport/asio/security/tls.hpp b/src/websocketpp/transport/asio/security/tls.hpp
-index 67ef1c8..c92deea 100644
+index 8f2b4c0..acb6776 100644
 --- a/src/websocketpp/transport/asio/security/tls.hpp
 +++ b/src/websocketpp/transport/asio/security/tls.hpp
-@@ -71,10 +71,14 @@ public:
+@@ -38,6 +38,8 @@
+ #include <websocketpp/common/functional.hpp>
+ #include <websocketpp/common/memory.hpp>
+ 
++#include <optional>
++#include <functional>
+ #include <sstream>
+ #include <string>
+ 
+@@ -52,7 +54,7 @@ namespace tls_socket {
+ typedef lib::function<void(connection_hdl,lib::asio::ssl::stream<
+     lib::asio::ip::tcp::socket>&)> socket_init_handler;
+ /// The signature of the tls_init_handler for this socket policy
+-typedef lib::function<lib::shared_ptr<lib::asio::ssl::context>(connection_hdl)>
++typedef lib::function<std::optional<std::reference_wrapper<lib::asio::ssl::context>>(connection_hdl)>
+     tls_init_handler;
+ 
+ /// TLS enabled Asio connection socket component
+@@ -71,12 +73,16 @@ public:
      typedef lib::asio::ssl::stream<lib::asio::ip::tcp::socket> socket_type;
      /// Type of a shared pointer to the ASIO socket being used
      typedef lib::shared_ptr<socket_type> socket_ptr;
@@ -369,5 +387,26 @@ index 67ef1c8..c92deea 100644
 -    typedef lib::shared_ptr<lib::asio::strand<lib::asio::executor> > strand_ptr;
 +    typedef lib::shared_ptr<lib::asio::strand<executor_type> > strand_ptr;
      /// Type of a shared pointer to the ASIO TLS context being used
-     typedef lib::shared_ptr<lib::asio::ssl::context> context_ptr;
+-    typedef lib::shared_ptr<lib::asio::ssl::context> context_ptr;
++    typedef std::optional<std::reference_wrapper<lib::asio::ssl::context>> context_optional;
  
+     explicit connection() {
+         //std::cout << "transport::asio::tls_socket::connection constructor"
+@@ -194,7 +200,7 @@ protected:
+             return socket::make_error_code(socket::error::invalid_tls_context);
+         }
+         m_socket = lib::make_shared<socket_type>(
+-            service,*m_context);
++            service, m_context.value());
+ 
+         if (m_socket_init_handler) {
+             m_socket_init_handler(m_hdl, get_socket());
+@@ -384,7 +390,7 @@ private:
+ 
+     executor_type       m_executor;
+     strand_ptr          m_strand;
+-    context_ptr         m_context;
++    context_optional    m_context;
+     socket_ptr          m_socket;
+     uri_ptr             m_uri;
+     bool                m_is_server;
