@@ -173,7 +173,7 @@ index bf88c95..d2beef7 100644
                  // this is a signal to terminate our end of the connection after
                  // the closing handshake
 diff --git a/src/websocketpp/impl/endpoint_impl.hpp b/src/websocketpp/impl/endpoint_impl.hpp
-index 2aac1d9..c1b726c 100644
+index 2aac1d9..1671d46 100644
 --- a/src/websocketpp/impl/endpoint_impl.hpp
 +++ b/src/websocketpp/impl/endpoint_impl.hpp
 @@ -32,6 +32,55 @@
@@ -246,7 +246,7 @@ index 6b48d95..6fd3fa2 100644
  
      // Store hash in result pointer, and make sure we get in in the correct
 diff --git a/src/websocketpp/transport/asio/connection.hpp b/src/websocketpp/transport/asio/connection.hpp
-index 0056d07..97a47e9 100644
+index 0056d07..d447ec8 100644
 --- a/src/websocketpp/transport/asio/connection.hpp
 +++ b/src/websocketpp/transport/asio/connection.hpp
 @@ -85,10 +85,14 @@ public:
@@ -284,8 +284,44 @@ index 0056d07..97a47e9 100644
                  executor);
          }
  
+@@ -573,7 +577,7 @@ protected:
+         lib::error_code const & ec)
+     {
+         if (ec == transport::error::operation_aborted ||
+-            (post_timer && lib::asio::is_neg(post_timer->expires_from_now())))
++            (post_timer && lib::asio::is_neg(post_timer->expiry() - lib::asio::steady_timer::clock_type::now())))
+         {
+             m_alog->write(log::alevel::devel,"post_init cancelled");
+             return;
+@@ -679,7 +683,7 @@ protected:
+         // Whatever aborted it will be issuing the callback so we are safe to
+         // return
+         if (ec == lib::asio::error::operation_aborted ||
+-            lib::asio::is_neg(m_proxy_data->timer->expires_from_now()))
++            lib::asio::is_neg(m_proxy_data->timer->expiry() - lib::asio::steady_timer::clock_type::now()))
+         {
+             m_elog->write(log::elevel::devel,"write operation aborted");
+             return;
+@@ -751,7 +755,7 @@ protected:
+         // Whatever aborted it will be issuing the callback so we are safe to
+         // return
+         if (ec == lib::asio::error::operation_aborted ||
+-            lib::asio::is_neg(m_proxy_data->timer->expires_from_now()))
++            lib::asio::is_neg(m_proxy_data->timer->expiry() - lib::asio::steady_timer::clock_type::now()))
+         {
+             m_elog->write(log::elevel::devel,"read operation aborted");
+             return;
+@@ -1095,7 +1099,7 @@ protected:
+         callback, lib::asio::error_code const & ec)
+     {
+         if (ec == lib::asio::error::operation_aborted ||
+-            lib::asio::is_neg(shutdown_timer->expires_from_now()))
++            lib::asio::is_neg(shutdown_timer->expiry() - lib::asio::steady_timer::clock_type::now()))
+         {
+             m_alog->write(log::alevel::devel,"async_shutdown cancelled");
+             return;
 diff --git a/src/websocketpp/transport/asio/endpoint.hpp b/src/websocketpp/transport/asio/endpoint.hpp
-index 481c093..64abed7 100644
+index 481c093..ee97d25 100644
 --- a/src/websocketpp/transport/asio/endpoint.hpp
 +++ b/src/websocketpp/transport/asio/endpoint.hpp
 @@ -77,8 +77,12 @@ public:
@@ -302,7 +338,7 @@ index 481c093..64abed7 100644
      /// Type of a shared pointer to the acceptor being used
      typedef lib::shared_ptr<lib::asio::ip::tcp::acceptor> acceptor_ptr;
      /// Type of a shared pointer to the resolver being used
-@@ -86,7 +90,7 @@ public:
+@@ -86,14 +90,14 @@ public:
      /// Type of timer handle
      typedef lib::shared_ptr<lib::asio::steady_timer> timer_ptr;
      /// Type of a shared pointer to an executor_work_guard object
@@ -311,6 +347,65 @@ index 481c093..64abed7 100644
  
      /// Type of socket pre-bind handler
      typedef lib::function<lib::error_code(acceptor_ptr)> tcp_pre_bind_handler;
+ 
+     // generate and manage our own io_service
+     explicit endpoint()
+-      : m_listen_backlog(lib::asio::socket_base::max_connections)
++      : m_listen_backlog(lib::asio::socket_base::max_listen_connections)
+       , m_reuse_addr(false)
+       , m_state(UNINITIALIZED)
+     {
+@@ -129,7 +133,7 @@ public:
+       , m_tcp_post_init_handler(src.m_tcp_post_init_handler)
+       , m_executor(std::move(src.m_executor))
+       , m_acceptor(src.m_acceptor)
+-      , m_listen_backlog(lib::asio::socket_base::max_connections)
++      , m_listen_backlog(lib::asio::socket_base::max_listen_connections)
+       , m_reuse_addr(src.m_reuse_addr)
+       , m_elog(src.m_elog)
+       , m_alog(src.m_alog)
+@@ -149,7 +153,7 @@ public:
+ 
+             rhs.m_executor = NULL;
+             rhs.m_acceptor = NULL;
+-            rhs.m_listen_backlog = lib::asio::socket_base::max_connections;
++            rhs.m_listen_backlog = lib::asio::socket_base::max_listen_connections;
+             rhs.m_state = UNINITIALIZED;
+             
+             // TODO: this needs to be updated
+@@ -220,9 +224,9 @@ public:
+         // TODO: remove the use of auto_ptr when C++98/03 support is no longer
+         //       necessary.
+ #ifdef _WEBSOCKETPP_CPP11_MEMORY_
+-        lib::unique_ptr<lib::asio::io_service> service(new lib::asio::io_service());
++        lib::unique_ptr<lib::asio::io_context> service(new lib::asio::io_context());
+ #else
+-        lib::auto_ptr<lib::asio::io_service> service(new lib::asio::io_service());
++        lib::auto_ptr<lib::asio::io_context> service(new lib::asio::io_context());
+ #endif
+         init_asio(service.get()->get_executor(), ec);
+         if( !ec ) {
+@@ -243,9 +247,9 @@ public:
+         // TODO: remove the use of auto_ptr when C++98/03 support is no longer
+         //       necessary.
+ #ifdef _WEBSOCKETPP_CPP11_MEMORY_
+-        lib::unique_ptr<lib::asio::io_service> service(new lib::asio::io_service());
++        lib::unique_ptr<lib::asio::io_context> service(new lib::asio::io_context());
+ #else
+-        lib::auto_ptr<lib::asio::io_service> service(new lib::asio::io_service());
++        lib::auto_ptr<lib::asio::io_context> service(new lib::asio::io_context());
+ #endif
+         init_asio( service.get() );
+         // If control got this far without an exception, then ownership has successfully been taken
+@@ -320,7 +324,7 @@ public:
+      *
+      * New values affect future calls to listen only.
+      *
+-     * The default value is specified as *::asio::socket_base::max_connections
++     * The default value is specified as *::asio::socket_base::max_listen_connections
+      * which uses the operating system defined maximum queue length. Your OS
+      * may restrict or silently lower this value. A value of zero may cause
+      * all connections to be rejected.
 @@ -365,7 +369,7 @@ public:
       *
       * @return A reference to the endpoint's executor
@@ -320,7 +415,28 @@ index 481c093..64abed7 100644
          return m_executor;
      }
      
-@@ -677,7 +681,7 @@ public:
+@@ -548,9 +552,8 @@ public:
+     {
+         using lib::asio::ip::tcp;
+         tcp::resolver r(m_executor);
+-        tcp::resolver::query query(host, service);
+-        tcp::resolver::iterator endpoint_iterator = r.resolve(query);
+-        tcp::resolver::iterator end;
++        tcp::resolver::results_type::iterator endpoint_iterator = r.resolve(host, service).begin();
++        tcp::resolver::results_type::iterator end;
+         if (endpoint_iterator == end) {
+             m_elog->write(log::elevel::library,
+                 "asio::listen could not resolve the supplied host or service");
+@@ -656,7 +659,7 @@ public:
+ 
+     /// wraps the reset method of the internal io_service object
+     void reset() {
+-        m_service->reset();
++        m_service->restart();
+     }
+ 
+     /// wraps the stopped method of the internal io_service object
+@@ -677,7 +680,7 @@ public:
       * @since 0.3.0
       */
      void start_perpetual() {
@@ -329,6 +445,76 @@ index 481c093..64abed7 100644
              m_executor
          );
      }
+@@ -876,8 +879,6 @@ protected:
+             port = pu->get_port_str();
+         }
+ 
+-        tcp::resolver::query query(host,port);
+-
+         if (m_alog->static_test(log::alevel::devel)) {
+             m_alog->write(log::alevel::devel,
+                 "starting async DNS resolve for "+host+":"+port);
+@@ -898,7 +899,7 @@ protected:
+ 
+         if (config::enable_multithreading) {
+             m_resolver->async_resolve(
+-                query,
++                host,port,
+                 lib::asio::bind_executor(*tcon->get_strand(), lib::bind(
+                     &type::handle_resolve,
+                     this,
+@@ -911,7 +912,7 @@ protected:
+             );
+         } else {
+             m_resolver->async_resolve(
+-                query,
++                host,port,
+                 lib::bind(
+                     &type::handle_resolve,
+                     this,
+@@ -959,10 +960,10 @@ protected:
+ 
+     void handle_resolve(transport_con_ptr tcon, timer_ptr dns_timer,
+         connect_handler callback, lib::asio::error_code const & ec,
+-        lib::asio::ip::tcp::resolver::iterator iterator)
++        lib::asio::ip::tcp::resolver::results_type::iterator iterator)
+     {
+         if (ec == lib::asio::error::operation_aborted ||
+-            lib::asio::is_neg(dns_timer->expires_from_now()))
++            lib::asio::is_neg(dns_timer->expiry() - lib::asio::steady_timer::clock_type::now()))
+         {
+             m_alog->write(log::alevel::devel,"async_resolve cancelled");
+             return;
+@@ -980,7 +981,7 @@ protected:
+             std::stringstream s;
+             s << "Async DNS resolve successful. Results: ";
+ 
+-            lib::asio::ip::tcp::resolver::iterator it, end;
++            lib::asio::ip::tcp::resolver::results_type::iterator it, end;
+             for (it = iterator; it != end; ++it) {
+                 s << (*it).endpoint() << " ";
+             }
+@@ -1070,7 +1071,7 @@ protected:
+         connect_handler callback, lib::asio::error_code const & ec)
+     {
+         if (ec == lib::asio::error::operation_aborted ||
+-            lib::asio::is_neg(con_timer->expires_from_now()))
++            lib::asio::is_neg(con_timer->expiry() - lib::asio::steady_timer::clock_type::now()))
+         {
+             m_alog->write(log::alevel::devel,"async_connect cancelled");
+             return;
+@@ -1155,9 +1156,9 @@ private:
+     // Network Resources
+ 
+ #ifdef _WEBSOCKETPP_CPP11_MEMORY_
+-    lib::unique_ptr<lib::asio::io_service> m_service;
++    lib::unique_ptr<lib::asio::io_context> m_service;
+ #else
+-    lib::auto_ptr<lib::asio::io_service> m_service;
++    lib::auto_ptr<lib::asio::io_context> m_service;
+ #endif
+ 
+     executor_type       m_executor;
 diff --git a/src/websocketpp/transport/asio/security/none.hpp b/src/websocketpp/transport/asio/security/none.hpp
 index ce55db6..266567e 100644
 --- a/src/websocketpp/transport/asio/security/none.hpp
