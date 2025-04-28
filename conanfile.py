@@ -1,5 +1,5 @@
-from conans import ConanFile, tools
-
+from conan import ConanFile, tools
+import os
 
 class WebsocketppConan(ConanFile):
     name = "websocketpp"
@@ -9,17 +9,24 @@ class WebsocketppConan(ConanFile):
     url = "https://github.com/odant/conan-websocketpp"
     exports_sources = "src/*", "Findwebsocketpp.cmake", "odant.patch", "fix_std_c++20_build.patch"
     no_copy_source = True
+    package_type = "header-library"
 
     def requirements(self):
         self.requires("boost/[>=1.70.0]@%s/testing" % self.user)
 
     def source(self):
-        tools.patch(patch_file="odant.patch")
-        tools.patch(patch_file="fix_std_c++20_build.patch")
+        tools.files.patch(self, patch_file="odant.patch")
+        tools.files.patch(self, patch_file="fix_std_c++20_build.patch")
 
     def package(self):
-        self.copy("Findwebsocketpp.cmake", src=".", dst=".")
-        self.copy("*.hpp", src="src/websocketpp", dst="include/websocketpp", keep_path=True)
+        tools.files.copy(self, "Findwebsocketpp.cmake", src=self.export_sources_folder, dst=self.package_folder)
+        tools.files.copy(self, "*.hpp", src=os.path.join(self.source_folder, "src", "websocketpp"), dst=os.path.join(self.package_folder, "include", "websocketpp"), keep_path=True)
 
     def package_id(self):
-        self.info.header_only()
+        self.info.clear()
+
+    def package_info(self):
+        self.cpp_info.set_property("cmake_find_mode", "both")
+        self.cpp_info.set_property("cmake_file_name", "websocketpp")
+        self.cpp_info.set_property("cmake_target_name", "websocketpp::websocketpp")
+        self.cpp_info.requires = ["boost::headers"]
